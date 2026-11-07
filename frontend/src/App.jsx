@@ -18,9 +18,20 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [listening, setListening] = useState(false);
+const [speaking, setSpeaking] = useState(false);
+const [voiceSupported, setVoiceSupported] = useState(false);
+
+const recognitionRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  useEffect(() => {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  setVoiceSupported(Boolean(SpeechRecognition));
+}, []);
 
   // Check backend connection.
   async function regenerateResponse() {
@@ -313,6 +324,43 @@ function App() {
   conversation.title.toLowerCase().includes(searchQuery.toLowerCase())
 );
 
+const startVoiceInput = () => {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    alert("Voice input is not supported in this browser.");
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = "en-US";
+
+  recognition.onstart = () => {
+    setListening(true);
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+
+    setMessage((prev) =>
+      prev ? `${prev} ${transcript}` : transcript
+    );
+  };
+
+  recognition.onerror = (event) => {
+    console.error("Voice recognition error:", event.error);
+  };
+
+  recognition.onend = () => {
+    setListening(false);
+  };
+
+  recognition.start();
+};
   return (
     <div className="app-shell">
 
@@ -668,6 +716,17 @@ function App() {
               rows={1}
               disabled={loading}
             />
+
+                        <button
+              type="button"
+              onClick={startVoiceInput}
+              disabled={!voiceSupported || loading}
+              aria-label="Voice input"
+              title={listening ? "Listening..." : "Start voice input"}
+              className={listening ? "listening" : ""}
+            >
+              {listening ? "🔴" : "🎤"}
+            </button>
 
             <button
               type="submit"
