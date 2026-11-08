@@ -3,6 +3,7 @@ import os
 import logging
 import sqlite3
 import psycopg
+import asyncio
 
 from psycopg.rows import dict_row
 
@@ -10,7 +11,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from google import genai
@@ -30,6 +31,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL = "gemini-3.5-flash-lite"
+VOICE_MODEL = "gemini-3.8-live"
 
 client = genai.Client(api_key=API_KEY) if API_KEY else None
 
@@ -699,3 +701,142 @@ def regenerate_response(conversation_id: int):
             )
         )
 
+@app.websocket("/ws/voice")
+async def voice_websocket(websocket: WebSocket):
+
+    await websocket.accept()
+
+    if not client:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Gemini API is not configured."
+        })
+        await websocket.close()
+        return
+
+    config = types.LiveConnectConfig(
+        response_modalities=["AUDIO"],
+        system_instruction=SYSTEM_INSTRUCTION,
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                    voice_name="Aoede"
+                )
+            )
+        ),
+        input_audio_transcription=types.AudioTranscriptionConfig(),
+        output_audio_transcription=types.AudioTranscriptionConfig(),
+        http_options=types.HttpOptions(
+            api_version="v1beta"
+        )
+    )
+
+    try:
+
+        async with client.aio.live.connect(
+            model=VOICE_MODEL,
+            config=config
+        ) as session:
+
+            await websocket.send_json({
+                "type": "connected",
+                "message": "VORTEX Voice Mode connected."
+            })
+
+            async def receive_from_browser():
+
+                while True:
+
+                    message = await websocket.receive()
+
+                    if message.get("bytes"):
+
+                        await session.send_realtime_input(
+                            audio=types.Blob(
+                                data=message["bytes"],
+                                mime_type="audio/pcm;rate=16000"
+                            )
+                        )
+
+                    elif message.get("text"):
+
+                        import json
+
+                        data = json.loads(message["text"])
+
+                        if data.get("type") == "text":
+                            await session.send_realtime_input(
+                                text=data.get("text", "")
+                            )
+
+            async def receive_from_gemini():
+
+                async for response in session.receive():
+
+                    if not response.server_content:
+                        continue
+
+                    content = response.server_content
+
+                    if content.input_transcription:
+                        await websocket.send_json({
+                            "type": "input_transcription",
+                            "text": content.input_transcription.text
+                        })
+
+                    if content.output_transcription:
+                        await websocket.send_json({
+                            "type": "output_transcription",
+                            "text": content.output_transcription.text
+                        })
+
+                    if content.model_turn:
+
+                        for part in content.model_turn.parts:
+
+                            if part.inline_data and part.inline_data.data:
+
+                                await websocket.send_bytes(
+                                    part.inline_data.data
+                                )
+
+                    if content.turn_complete:
+
+                        await websocket.send_json({
+                            "type": "turn_complete"
+                        })
+
+            browser_task = asyncio.create_task(
+                receive_from_browser()
+            )
+
+            gemini_task = asyncio.create_task(
+                receive_from_gemini()
+            )
+
+            done, pending = await asyncio.wait(
+                [browser_task, gemini_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+
+            for task in pending:
+                task.cancel()
+
+            await asyncio.gather(
+                *pending,
+                return_exceptions=True
+            )
+
+    except WebSocketDisconnect:
+        logger.info("VORTEX Voice Mode disconnected.")
+
+    except Exception:
+        logger.exception("VORTEX Voice Mode error.")
+
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Voice connection failed."
+            })
+        except Exception:
+            pass

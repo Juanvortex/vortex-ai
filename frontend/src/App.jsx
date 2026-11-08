@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import VoiceMode from "./VoiceMode";
 
 import "highlight.js/styles/github-dark.css";
 import "./App.css";
@@ -16,6 +17,7 @@ function App() {
   const [conversationId, setConversationId] = useState(null);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [voiceModeOpen, setVoiceModeOpen] = useState(false);
   const [connected, setConnected] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [listening, setListening] = useState(false);
@@ -242,7 +244,29 @@ const recognitionRef = useRef(null);
     alert(error.message);
   }
 }
+// Make VORTEX speak its responses.
+function speakResponse(text) {
+  if (!("speechSynthesis" in window)) {
+    alert("Voice output is not supported in this browser.");
+    return;
+  }
 
+  window.speechSynthesis.cancel();
+
+  const utterance = new SpeechSynthesisUtterance(text);
+
+  utterance.lang = "en-US";
+  utterance.rate = 1;
+  utterance.pitch = 1;
+
+  utterance.onstart = () => setSpeaking(true);
+
+  utterance.onend = () => setSpeaking(false);
+
+  utterance.onerror = () => setSpeaking(false);
+
+  window.speechSynthesis.speak(utterance);
+}
   // Send a message to Gemini and save it in SQLite.
   async function sendMessage(e) {
     e.preventDefault();
@@ -289,6 +313,7 @@ const recognitionRef = useRef(null);
           content: data.reply,
         },
       ]);
+            speakResponse(data.reply);
 
       setConnected(true);
 
@@ -346,7 +371,7 @@ const startVoiceInput = () => {
   recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
 
-    setMessage((prev) =>
+    setPrompt((prev) =>
       prev ? `${prev} ${transcript}` : transcript
     );
   };
@@ -361,6 +386,8 @@ const startVoiceInput = () => {
 
   recognition.start();
 };
+
+
   return (
     <div className="app-shell">
 
@@ -511,7 +538,13 @@ const startVoiceInput = () => {
               PERSONAL WORKSPACE / ASSISTANT
             </span>
           </div>
-
+<button
+  className="voice-mode-button"
+  onClick={() => setVoiceModeOpen(true)}
+  title="Open VORTEX Voice Mode"
+>
+  <span>◉</span> VOICE MODE
+</button>
           <div className="system-status">
 
             <span
@@ -744,7 +777,13 @@ const startVoiceInput = () => {
 
         </footer>
 
-      </main>
+            </main>
+
+      {voiceModeOpen && (
+        <VoiceMode
+          onClose={() => setVoiceModeOpen(false)}
+        />
+      )}
 
     </div>
   );
