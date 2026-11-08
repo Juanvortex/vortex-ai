@@ -993,3 +993,135 @@ button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+
+/* =====================================
+   VORTEX AI — MODERN CHAT LAYOUT
+===================================== */
+
+.messages {
+  width: 100%;
+  max-width: 1050px;
+  gap: 30px;
+  padding: 25px 20px 35px;
+}
+
+/* Shared message layout */
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+/* VORTEX AI — LEFT SIDE */
+.message.assistant {
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+.message.assistant .message-content {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 85%;
+  padding: 17px 20px;
+  background: linear-gradient(
+    145deg,
+    rgba(20, 39, 62, 0.95),
+    rgba(12, 25, 43, 0.95)
+  );
+  border: 1px solid rgba(75, 160, 220, 0.18);
+  border-radius: 5px 18px 18px 18px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.message.assistant .message-avatar {
+  background: linear-gradient(135deg, #1689dc, #123e70);
+  color: white;
+  box-shadow: 0 4px 15px rgba(22, 137, 220, 0.2);
+}
+
+/* USER — RIGHT SIDE */
+.message.user {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.message.user .message-content {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 75%;
+  padding: 14px 19px;
+  background: linear-gradient(135deg, #145c9c, #174477);
+  border: 1px solid rgba(95, 175, 255, 0.25);
+  border-radius: 18px 5px 18px 18px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.15);
+}
+
+.message.user .message-avatar {
+  background: linear-gradient(135deg, #8b5cf6, #4f46a5);
+  color: white;
+}
+
+/* Message labels */
+.message-content strong {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+}
+
+.message.assistant .message-content strong {
+  color: #65cfff;
+}
+
+.message.user .message-content strong {
+  color: #c6e4ff;
+  text-align: right;
+}
+
+/* Message text */
+.message-content p {
+  margin: 5px 0;
+  line-height: 1.8;
+}
+
+.message.user .message-content p {
+  color: #ffffff;
+  text-align: left;
+}
+
+/* Keep AI code blocks and Markdown inside their cards */
+.message.assistant .markdown-wrapper,
+.message.assistant .markdown-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Mobile layout */
+@media (max-width: 600px) {
+  .messages {
+    padding: 15px 8px 25px;
+    gap: 22px;
+  }
+
+  .message {
+    gap: 8px;
+  }
+
+  .message.assistant .message-content {
+    max-width: 88%;
+    padding: 13px 14px;
+  }
+
+  .message.user .message-content {
+    max-width: 82%;
+    padding: 12px 14px;
+  }
+
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+  }
+}
