@@ -18,6 +18,7 @@ function VoiceMode({ onClose }) {
   const sourceRef = useRef(null);
   const gainRef = useRef(null);
   const nextPlayTimeRef = useRef(0);
+  const activeSourcesRef = useRef(new Set());
 
   function cleanup() {
     if (socketRef.current) {
@@ -75,8 +76,14 @@ function VoiceMode({ onClose }) {
     buffer.copyToChannel(samples, 0);
 
     const source = context.createBufferSource();
-    source.buffer = buffer;
-    source.connect(context.destination);
+source.buffer = buffer;
+source.connect(context.destination);
+
+activeSourcesRef.current.add(source);
+
+source.onended = () => {
+  activeSourcesRef.current.delete(source);
+};
 
     const startTime = Math.max(
       context.currentTime + 0.02,
@@ -86,6 +93,18 @@ function VoiceMode({ onClose }) {
     source.start(startTime);
     nextPlayTimeRef.current = startTime + buffer.duration;
   }
+  function interruptPlayback() {
+  activeSourcesRef.current.forEach((source) => {
+    try {
+      source.stop();
+    } catch (error) {
+      // Audio source may have already stopped.
+    }
+  });
+
+  activeSourcesRef.current.clear();
+  nextPlayTimeRef.current = 0;
+}
 
   function resampleAudio(input, inputRate, outputRate) {
     if (inputRate === outputRate) return input;
@@ -198,6 +217,11 @@ function VoiceMode({ onClose }) {
         }
 
         const data = JSON.parse(event.data);
+        if (data.type === "interrupted") {
+  interruptPlayback();
+  setStatus("listening");
+  return;
+}
 
         if (data.type === "connected") {
           setStatus("listening");

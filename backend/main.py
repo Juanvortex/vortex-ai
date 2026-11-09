@@ -2,6 +2,7 @@
 import os
 import logging
 import sqlite3
+from httpx2 import websocket
 import psycopg
 import asyncio
 
@@ -218,6 +219,17 @@ YOUR RULES:
 - Be honest about your limitations.
 
 You are VORTEX AI. Make every interaction helpful.
+"""
+
+
+VOICE_SYSTEM_INSTRUCTION = SYSTEM_INSTRUCTION + """
+
+VOICE MODE LANGUAGE RULE:
+- Speak English only.
+- Understand and respond in English only.
+- If the user speaks another language, politely ask them to speak in English.
+- Never switch to another language, even if requested.
+- Use natural, clear, conversational English when speaking.
 """
 
 
@@ -716,7 +728,7 @@ async def voice_websocket(websocket: WebSocket):
 
     config = types.LiveConnectConfig(
         response_modalities=["AUDIO"],
-        system_instruction=SYSTEM_INSTRUCTION,
+        system_instruction=VOICE_SYSTEM_INSTRUCTION,
         speech_config=types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
@@ -779,6 +791,11 @@ async def voice_websocket(websocket: WebSocket):
                             continue
 
                         content = response.server_content
+
+                        if content.interrupted:
+                            await websocket.send_json({
+                                "type": "interrupted"
+                            })
 
                         if content.input_transcription:
                             await websocket.send_json({
