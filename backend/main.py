@@ -771,40 +771,42 @@ async def voice_websocket(websocket: WebSocket):
 
             async def receive_from_gemini():
 
-                async for response in session.receive():
+                while True:
 
-                    if not response.server_content:
-                        continue
+                    async for response in session.receive():
 
-                    content = response.server_content
+                        if not response.server_content:
+                            continue
 
-                    if content.input_transcription:
-                        await websocket.send_json({
-                            "type": "input_transcription",
-                            "text": content.input_transcription.text
-                        })
+                        content = response.server_content
 
-                    if content.output_transcription:
-                        await websocket.send_json({
-                            "type": "output_transcription",
-                            "text": content.output_transcription.text
-                        })
+                        if content.input_transcription:
+                            await websocket.send_json({
+                                "type": "input_transcription",
+                                "text": content.input_transcription.text
+                            })
 
-                    if content.model_turn:
+                        if content.output_transcription:
+                            await websocket.send_json({
+                                "type": "output_transcription",
+                                "text": content.output_transcription.text
+                            })
 
-                        for part in content.model_turn.parts:
+                        if content.model_turn:
 
-                            if part.inline_data and part.inline_data.data:
+                            for part in content.model_turn.parts:
 
-                                await websocket.send_bytes(
-                                    part.inline_data.data
-                                )
+                                if part.inline_data and part.inline_data.data:
 
-                    if content.turn_complete:
+                                    await websocket.send_bytes(
+                                        part.inline_data.data
+                                    )
 
-                        await websocket.send_json({
-                            "type": "turn_complete"
-                        })
+                        if content.turn_complete:
+
+                            await websocket.send_json({
+                                "type": "turn_complete"
+                            })
 
             browser_task = asyncio.create_task(
                 receive_from_browser()
