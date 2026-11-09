@@ -313,7 +313,6 @@ function speakResponse(text) {
           content: data.reply,
         },
       ]);
-            speakResponse(data.reply);
 
       setConnected(true);
 
